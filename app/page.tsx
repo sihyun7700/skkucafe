@@ -148,7 +148,7 @@ export default function Home(){
 
   if(!campus)return <main className="entry">
     <header className="entry-head"><div className="brand"><span aria-hidden="true">☕</span><div><strong className="brand-title">SKKU <b>STUDY CAFE</b></strong><small>학교 주변 카페를 찾아보세요!</small></div></div></header>
-    <section className="entry-copy"><p className="eyebrow">CHOOSE YOUR CAFE</p><h1>성대생의 카페를 찾아라!</h1><p>먼저 캠퍼스를 선택해주세요</p></section>
+    <section className="entry-copy"><p className="eyebrow">CHOOSE YOUR CAFE</p><h1>성대생의 카페를 찾아라 !</h1><p>먼저 캠퍼스를 선택해주세요</p></section>
     <section className="campus-cards">{(["명륜","율전"] as Campus[]).map(c=><button key={c} onClick={()=>{setCampus(c);setActive(cafes[c][0].name)}} className={c==="명륜"?"light":"dark"}>
       <div className={`mascot-crop ${c==="명륜"?"mascot-myeongnyun":"mascot-yuljeon"}`} role="img" aria-label={`${c}캠퍼스 캐릭터`}/>
       <span className="campus-sub">{campusInfo[c].sub}</span><strong>{campusInfo[c].title}</strong><span className="enter-link">카페 {cafes[c].length}곳 탐색하기 <b>→</b></span>
