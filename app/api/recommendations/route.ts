@@ -1,4 +1,6 @@
-import { getRecommendationsDb } from "../../../db/recommendations";
+import { addRecommendation, getRecommendationStatus, removeRecommendation } from "../../../db/recommendations";
+
+export const runtime="nodejs";
 
 const COOKIE_NAME="skku_cafe_voter";
 
@@ -14,10 +16,7 @@ function getVoterId(request:Request){
 }
 
 async function getStatus(cafe:string,voterId:string|null){
-  const db=await getRecommendationsDb();
-  const total=await db.prepare("SELECT COUNT(*) AS count FROM recommendations WHERE cafe_id = ?").bind(cafe).first<{count:number}>();
-  const vote=voterId?await db.prepare("SELECT 1 AS found FROM recommendations WHERE cafe_id = ? AND voter_id = ? LIMIT 1").bind(cafe,voterId).first<{found:number}>():null;
-  return {count:Number(total?.count??0),recommended:Boolean(vote?.found)};
+  return getRecommendationStatus(cafe,voterId);
 }
 
 export async function GET(request:Request){
@@ -33,8 +32,7 @@ export async function POST(request:Request){
   try{
     const existingVoterId=getVoterId(request);
     const voterId=existingVoterId??crypto.randomUUID();
-    const db=await getRecommendationsDb();
-    await db.prepare("INSERT OR IGNORE INTO recommendations (cafe_id, voter_id) VALUES (?, ?)").bind(cafe,voterId).run();
+    await addRecommendation(cafe,voterId);
     const status=await getStatus(cafe,voterId);
     const headers=new Headers({"content-type":"application/json"});
     if(!existingVoterId)headers.append("set-cookie",`${COOKIE_NAME}=${encodeURIComponent(voterId)}; Path=/; Max-Age=31536000; SameSite=Lax; HttpOnly`);
@@ -48,8 +46,7 @@ export async function DELETE(request:Request){
   try{
     const voterId=getVoterId(request);
     if(voterId){
-      const db=await getRecommendationsDb();
-      await db.prepare("DELETE FROM recommendations WHERE cafe_id = ? AND voter_id = ?").bind(cafe,voterId).run();
+      await removeRecommendation(cafe,voterId);
     }
     return Response.json(await getStatus(cafe,voterId));
   }catch{return Response.json({error:"추천을 취소하지 못했습니다."},{status:500})}
