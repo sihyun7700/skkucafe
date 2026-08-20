@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { RELEASE_VERSION } from "../lib/analytics";
 
 const googleAnalyticsId = "G-2GW9Q115SX";
 
@@ -25,6 +26,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   window.dataLayer = window.dataLayer || [];
   function gtag(){dataLayer.push(arguments);}
   gtag('js', new Date());
+  gtag('set', { release_version: '${RELEASE_VERSION}' });
   gtag('config', '${googleAnalyticsId}');
 `}}/></head><body>{children}</body></html>;
 }

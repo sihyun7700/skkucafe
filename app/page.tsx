@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { LayerGroup, Map as LeafletMap } from "leaflet";
+import { trackEvent } from "../lib/analytics";
 
 type Campus = "명륜" | "율전";
 type FilterKey = "outlet" | "noise" | "seat" | "table";
@@ -146,21 +147,47 @@ export default function Home(){
     requestAnimationFrame(()=>requestAnimationFrame(()=>detailRef.current?.scrollIntoView({behavior:"smooth",block:"start"})));
   },[]);
 
+  const selectCampus=(nextCampus:Campus,source:"entry"|"header")=>{
+    trackEvent("campus_select",{
+      campus:nextCampus,
+      selection_source:source,
+    });
+    setCampus(nextCampus);
+    setActive(cafes[nextCampus][0].name);
+    if(source==="header")setFilters({outlet:"전체",noise:"전체",seat:"전체",table:"전체"});
+  };
+
+  const changeFilter=(key:FilterKey,value:string)=>{
+    const nextFilters={...filters,[key]:value};
+    setFilters(nextFilters);
+    trackEvent("filter_use",{
+      campus:campus??"미선택",
+      filter_type:key,
+      filter_label:filterLabels[key],
+      filter_value:value,
+      filter_action:value==="전체"?"clear":"apply",
+      active_filter_count:(Object.keys(nextFilters) as FilterKey[]).filter(filterKey=>nextFilters[filterKey]!=="전체").length,
+    });
+  };
+
   if(!campus)return <main className="entry">
     <header className="entry-head"><div className="brand"><span aria-hidden="true">☕</span><div><strong className="brand-title">SKKU <b>STUDY CAFE</b></strong><small>학교 주변 카페를 찾아보세요!</small></div></div></header>
     <section className="entry-copy"><p className="eyebrow">CHOOSE YOUR CAFE</p><h1>성대생의 카페를 찾아라 !</h1><p>먼저 캠퍼스를 선택해주세요</p></section>
-    <section className="campus-cards">{(["명륜","율전"] as Campus[]).map(c=><button key={c} onClick={()=>{setCampus(c);setActive(cafes[c][0].name)}} className={c==="명륜"?"light":"dark"}>
+    <section className="campus-cards">{(["명륜","율전"] as Campus[]).map(c=><button key={c} onClick={()=>selectCampus(c,"entry")} className={c==="명륜"?"light":"dark"}>
       <div className={`mascot-crop ${c==="명륜"?"mascot-myeongnyun":"mascot-yuljeon"}`} role="img" aria-label={`${c}캠퍼스 캐릭터`}/>
       <span className="campus-sub">{campusInfo[c].sub}</span><strong>{campusInfo[c].title}</strong><span className="enter-link">카페 {cafes[c].length}곳 탐색하기 <b>→</b></span>
     </button>)}</section>
     <footer>SKKU STUDY CAFE FINDER</footer>
   </main>;
 
-  const clearFilters=()=>setFilters({outlet:"전체",noise:"전체",seat:"전체",table:"전체"});
+  const clearFilters=()=>{
+    setFilters({outlet:"전체",noise:"전체",seat:"전체",table:"전체"});
+    trackEvent("filter_reset",{campus});
+  };
   return <main>
-    <header className="map-head"><button className="brand brand-button" onClick={()=>setCampus(null)} aria-label="캠퍼스 다시 선택"><span aria-hidden="true">☕</span><div><strong className="brand-title">SKKU <b>STUDY CAFE</b></strong><small>학교 주변 카페를 찾아보세요!</small></div></button><div className="campus-tabs">{(["명륜","율전"] as Campus[]).map(c=><button key={c} className={campus===c?"active":""} onClick={()=>{setCampus(c);setActive(cafes[c][0].name);clearFilters()}}>{c}캠퍼스</button>)}</div></header>
+    <header className="map-head"><button className="brand brand-button" onClick={()=>setCampus(null)} aria-label="캠퍼스 다시 선택"><span aria-hidden="true">☕</span><div><strong className="brand-title">SKKU <b>STUDY CAFE</b></strong><small>학교 주변 카페를 찾아보세요!</small></div></button><div className="campus-tabs">{(["명륜","율전"] as Campus[]).map(c=><button key={c} className={campus===c?"active":""} onClick={()=>selectCampus(c,"header")}>{c}캠퍼스</button>)}</div></header>
     <section className="map-intro"><div><p className="eyebrow">REAL LOCATION · SKETCH STYLE</p><h1>{campusInfo[campus].title} 카공 지도</h1><p>{campusInfo[campus].sub}</p></div><span>{filtered.length}<small>곳 표시 중</small></span></section>
-    <section className="filter-bar"><div className="filter-title"><b>공부 조건 필터</b><span>복수 조건을 함께 선택할 수 있어요</span></div>{(Object.keys(filters) as FilterKey[]).map(key=><label key={key}><span>{filterLabels[key]}</span><select value={filters[key]} onChange={e=>setFilters({...filters,[key]:e.target.value})}>{filterOptions[key].map(o=><option key={o}>{o}</option>)}</select></label>)}<button className="reset" onClick={clearFilters}>초기화</button></section>
+    <section className="filter-bar"><div className="filter-title"><b>공부 조건 필터</b><span>복수 조건을 함께 선택할 수 있어요</span></div>{(Object.keys(filters) as FilterKey[]).map(key=><label key={key}><span>{filterLabels[key]}</span><select value={filters[key]} onChange={e=>changeFilter(key,e.target.value)}>{filterOptions[key].map(o=><option key={o}>{o}</option>)}</select></label>)}<button className="reset" onClick={clearFilters}>초기화</button></section>
     <section className="explorer">
       <div className="map-wrap"><RealMap campus={campus} items={filtered} active={selected?.name??""} onPreview={setActive} onSelect={selectCafeFromMap}/></div>
       {selected?<aside className="detail-card" ref={detailRef}><div className="detail-photo"><img src={selected.image} alt={`${selected.name} 내부 사진`}/></div><div className="detail-body"><div className="detail-meta"><span>{selected.location}</span><b>Wi-Fi {selected.wifi}</b></div><h2>{selected.name}</h2><div className="feature-grid"><div><span>콘센트</span><b>{selected.outlet}</b></div><div><span>소음</span><b>{selected.noise}</b></div><div><span>좌석</span><b>{selected.seat}</b></div><div><span>테이블</span><b>{selected.table}</b></div></div>{selected.note&&<p className="note">{selected.note}</p>}<dl><div><dt>분위기 기록</dt><dd>{selected.vibe}</dd></div><div><dt>영업시간</dt><dd>{selected.hours}</dd></div><div><dt>화장실</dt><dd>{selected.restroom}</dd></div></dl><div className="recommend-row"><button type="button" onClick={toggleRecommendation} disabled={recommendation.loading} aria-pressed={recommendation.recommended}><span aria-hidden="true">👍</span>{recommendation.recommended?"추천 취소":"나도 추천해요!"}</button><p><strong>{recommendation.count}</strong><span>명이 추천했어요</span></p></div><a className="directions" href={`https://map.naver.com/p/search/${encodeURIComponent(selected.name)}`} target="_blank" rel="noreferrer">정확한 위치 검색 ↗</a></div></aside>:<aside className="no-result"><b>조건에 맞는 카페가 없어요.</b><button onClick={clearFilters}>필터 초기화</button></aside>}
